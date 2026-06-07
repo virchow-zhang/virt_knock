@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "virt_knock"
-version = "0.1.0"
+version = "0.2.0"
 description = "CUDA-native single-cell virtual gene knockout (scTenifoldKnk)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -33,11 +33,16 @@ dependencies = [
     "pandas>=2.0",
     "scipy>=1.10",
     "torch>=2.0",
+    "tqdm>=4.60",
 ]
 
 [project.optional-dependencies]
+enrich = [
+    "gseapy>=1.0",
+]
 dev = [
     "pytest>=7",
+    "gseapy>=1.0",
 ]
 
 [project.scripts]

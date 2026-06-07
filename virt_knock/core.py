@@ -18,6 +18,12 @@ import pandas as pd
 import torch
 from scipy import stats
 
+try:
+    from tqdm import tqdm
+    _HAS_TQDM = True
+except ImportError:
+    _HAS_TQDM = False
+
 warnings.filterwarnings("ignore")
 
 # ─── Global defaults ─────────────────────────────────────────────────────────
@@ -273,7 +279,11 @@ def build_pc_networks(
             print(f"  Device: {DEVICE}  |  {p.name}  |  {p.total_memory/1e9:.1f} GB")
 
     networks = []
-    for net_i in range(n_nets):
+    iterator = range(n_nets)
+    if verbose and _HAS_TQDM:
+        iterator = tqdm(iterator, desc="  Building PC networks", unit="net")
+
+    for net_i in iterator:
         t0 = time.perf_counter()
         if use_all:
             sample = np.arange(n_cells)
@@ -288,10 +298,12 @@ def build_pc_networks(
             random_state=random_state + net_i,
         )
         networks.append(net)
-        if verbose:
-            nnz = np.count_nonzero(net)
-            _tlog(f"  Net {net_i+1}/{n_nets}: {nnz} edges, "
-                  f"{time.perf_counter()-t0:.1f}s")
+        nnz = np.count_nonzero(net)
+        elapsed = time.perf_counter() - t0
+        if verbose and _HAS_TQDM:
+            iterator.set_postfix_str(f"{nnz} edges, {elapsed:.1f}s")
+        elif verbose:
+            _tlog(f"  Net {net_i+1}/{n_nets}: {nnz} edges, {elapsed:.1f}s")
 
     return networks
 

@@ -7,6 +7,12 @@ build/
 *.egg
 .eggs/
 output/
+output_v2/
+*.txt
+test_*.py
+debug_*.py
+summary_enrichment.py
+run_enrichment.py
 *.swp
 *.swo
 *~

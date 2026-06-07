@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import time
+from datetime import datetime
 
 import pandas as pd
 
@@ -26,7 +27,11 @@ Examples:
     parser.add_argument("-g", "--genes", required=True,
                         help="Gene name(s) to knock out (comma-separated)")
     parser.add_argument("-o", "--output", default="./output",
-                        help="Output directory (default: ./output)")
+                        help="Output directory (default: ./output_TAG_TIMESTAMP)")
+    parser.add_argument("--no-timestamp", action="store_true",
+                        help="Do not append timestamp to output directory")
+    parser.add_argument("--enrich", action="store_true",
+                        help="Run enrichment analysis (GSEA + ORA) after knockout")
     parser.add_argument("-n", "--n-nets", type=int, default=10,
                         help="Number of bootstrap networks (default: 10)")
     parser.add_argument("-c", "--n-cells", type=int, default=500,
@@ -59,6 +64,17 @@ Examples:
     n_nets = args.n_nets
     ko_genes = [g.strip() for g in args.genes.split(",")]
 
+    # Defaults warning
+    if not args.all_cells and not args.no_bootstrap and n_samp_cells <= 500:
+        print(f"  [!] Subsampling {n_samp_cells} cells may miss KO gene effects.")
+        print(f"      Consider --all-cells or -c with a larger value for robust results.")
+
+    # Timestamped output directory
+    if not args.no_timestamp:
+        tag = "_".join(ko_genes[:3])
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        args.output = os.path.join(args.output, f"{tag}_n{n_nets}_{ts}")
+
     print("=" * 60)
     print("  virt_knock — CUDA Virtual Gene Knockout")
     print("=" * 60)
@@ -66,6 +82,8 @@ Examples:
     print(f"  KO genes:   {ko_genes}")
     print(f"  N networks: {n_nets}  |  Cells/sample: {'ALL' if n_samp_cells is None else n_samp_cells}")
     print(f"  Output:     {args.output}")
+    if args.enrich:
+        print(f"  Enrichment: GSEA + ORA (GO, KEGG, Reactome)")
     print("=" * 60)
 
     # Load data
@@ -127,3 +145,12 @@ Examples:
     print(f"{'=' * 60}")
     print(result.head(20).to_string())
     print(f"\n  Total wall time: {elapsed:.1f}s")
+
+    # Enrichment (optional)
+    if args.enrich:
+        from .enrichment import run_enrichment_all
+        run_enrichment_all(
+            dreg_df=result,
+            out_dir=os.path.join(args.output, "enrichment"),
+            verbose=True,
+        )

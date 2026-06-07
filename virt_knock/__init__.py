@@ -10,7 +10,12 @@ Pipeline:
     4. Virtual knockout (default or propagation)
     5. Manifold alignment (GPU Laplacian eigenmaps)
     6. Differential regulation (chi-square + FDR)
+    7. Enrichment analysis (GSEA + ORA, optional)
 """
+
+import os
+
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 from .core import (
     run_qc,
@@ -22,8 +27,13 @@ from .core import (
     differential_regulation,
     scTenifoldKnkCUDA,
 )
+from .enrichment import (
+    run_enrichment_all,
+    run_gsea_prerank,
+    run_ora_enrichr,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "run_qc",
     "build_pc_networks",
@@ -33,4 +43,7 @@ __all__ = [
     "manifold_alignment",
     "differential_regulation",
     "scTenifoldKnkCUDA",
+    "run_enrichment_all",
+    "run_gsea_prerank",
+    "run_ora_enrichr",
 ]
