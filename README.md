@@ -8,7 +8,8 @@
 GPU-accelerated implementation of the **scTenifoldKnk** algorithm (Osorio et al., *Patterns*, 2022) for predicting gene function via single-cell gene regulatory network perturbation.
 
 > **~5× faster** than CPU-only implementations on real-world datasets.  
-> Scales to **50,000+ cells** and **20,000+ genes** on a single GPU.
+> Scales to **50,000+ cells** and **20,000+ genes** on a single GPU.  
+> **v0.1.1** — Fixed FC baseline calculation; `--no-bootstrap` now preserves multi-network averaging for lower noise.
 
 ---
 
@@ -68,10 +69,13 @@ pip install -e .
 ### CLI
 
 ```bash
-# Knock out ETS1 using all cells
-virt_knock -i expression.tsv -g ETS1 --all-cells --no-bootstrap
+# Knock out ETS1 with default bootstrap (10 nets × 500 cells)
+virt_knock -i expression.tsv -g ETS1
 
-# Knock out multiple genes with bootstrap
+# Use all cells (no subsampling) with multi-network averaging
+virt_knock -i expression.tsv -g ETS1 --no-bootstrap -n 10
+
+# Knock out multiple genes
 virt_knock -i expression.tsv -g ETS1,FOXP3 -n 10 -c 500
 
 # Custom output directory
@@ -100,10 +104,10 @@ result = sc.run()
 
 # Top differentially regulated genes
 print(result.head(20))
-#         Gene  Distance       FC      p-value  adjusted_p-value
-# 0      Ets1  0.000006  9428.42  0.0000e+00      0.0000e+00
-# 1     Tcea1  0.000001   233.72  9.1915e-53      3.6311e-49
-# 2   Gm42418  0.000001   202.04  7.4895e-46      1.9725e-42
+#         Gene  Distance       FC         p-value  adjusted_p-value
+# 0       Ets1  0.000146  696711.44  0.000000e+00      0.000000e+00
+# 1       Flt1  0.000003     372.41  5.578652e-83      2.203846e-79
+# 2      Mcf2l  0.000003     288.74  9.341104e-65      2.460135e-61
 # ...
 
 # Save results
