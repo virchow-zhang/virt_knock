@@ -44,8 +44,8 @@ dev = [
 virt_knock = "virt_knock.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/user/virt_knock"
-Repository = "https://github.com/user/virt_knock"
+Homepage = "https://github.com/virchow-zhang/virt_knock"
+Repository = "https://github.com/virchow-zhang/virt_knock"
 
 [tool.setuptools.packages.find]
 include = ["virt_knock*"]

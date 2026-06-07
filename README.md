@@ -52,13 +52,13 @@ M = Qᵀ @ X      (832 × 42,507) @ (42,507 × 7,901)  =  559 GFLOPs per batch
 pip install torch --index-url https://download.pytorch.org/whl/cu126
 
 # Install virt_knock
-pip install git+https://github.com/YOUR_USER/virt_knock.git
+pip install git+https://github.com/virchow-zhang/virt_knock.git
 ```
 
 Or from source:
 
 ```bash
-git clone https://github.com/YOUR_USER/virt_knock.git
+git clone https://github.com/virchow-zhang/virt_knock.git
 cd virt_knock
 pip install -e .
 ```
