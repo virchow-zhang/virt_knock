@@ -34,7 +34,7 @@ Examples:
     parser.add_argument("--all-cells", action="store_true",
                         help="Use all cells (no subsampling)")
     parser.add_argument("--no-bootstrap", action="store_true",
-                        help="Build a single network (n_nets=1)")
+                        help="Use all cells in each network (no cell subsampling)")
     parser.add_argument("--n-comp", type=int, default=3,
                         help="PC components per gene regression (default: 3)")
     parser.add_argument("--q", type=float, default=0.95,
@@ -55,8 +55,8 @@ Examples:
     args = parser.parse_args()
 
     # Resolve arguments
-    n_samp_cells = None if args.all_cells else args.n_cells
-    n_nets = 1 if args.no_bootstrap else args.n_nets
+    n_samp_cells = None if (args.all_cells or args.no_bootstrap) else args.n_cells
+    n_nets = args.n_nets
     ko_genes = [g.strip() for g in args.genes.split(",")]
 
     print("=" * 60)

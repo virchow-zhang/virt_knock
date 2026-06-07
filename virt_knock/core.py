@@ -419,6 +419,7 @@ def manifold_alignment(
 def differential_regulation(
     ma_df: pd.DataFrame,
     n_ko_genes: int = 1,
+    ko_genes: Optional[List[str]] = None,
 ) -> pd.DataFrame:
     """Compute differential regulation scores from manifold alignment.
 
@@ -427,7 +428,10 @@ def differential_regulation(
     ma_df : pd.DataFrame
         Output of :func:`manifold_alignment`.
     n_ko_genes : int
-        Number of knocked-out genes (excluded from FC baseline).
+        Number of knocked-out genes (fallback rank-based exclusion).
+    ko_genes : list of str or None
+        Names of knocked-out genes.  When provided, these genes are
+        excluded from the FC baseline by identity (not rank).
 
     Returns
     -------
@@ -459,9 +463,16 @@ def differential_regulation(
     std_ = t_d.std()
     z = np.zeros_like(t_d) if std_ == 0 else (t_d - t_d.mean()) / std_
 
-    sorted_d = np.sort(d_metrics)[::-1]
-    non_ko = sorted_d[n_ko_genes:]
-    expected = np.mean(non_ko ** 2) if len(non_ko) > 0 else 1.0
+    if ko_genes is not None:
+        ko_set = set(ko_genes)
+        non_ko_mask = np.array([g not in ko_set for g in gene_names])
+    else:
+        sorted_idx = np.argsort(d_metrics)[::-1]
+        non_ko_mask = np.ones(n, dtype=bool)
+        non_ko_mask[sorted_idx[:n_ko_genes]] = False
+
+    non_ko_d = d_metrics[non_ko_mask]
+    expected = np.mean(non_ko_d ** 2) if len(non_ko_d) > 0 else 1.0
     FC = d_metrics ** 2 / expected if expected > 0 else np.zeros_like(d_metrics)
 
     p_vals = stats.chi2.sf(FC, df=1)
@@ -600,7 +611,11 @@ class scTenifoldKnkCUDA:
         # 6. Differential regulation
         _tlog("Step 6/6: Differential Regulation")
         t0 = time.perf_counter()
-        self.d_reg = differential_regulation(self.ma_result, n_ko_genes=len(self.ko_genes))
+        self.d_reg = differential_regulation(
+            self.ma_result,
+            n_ko_genes=len(self.ko_genes),
+            ko_genes=self.ko_genes,
+        )
         _tlog(f"  → {self.d_reg.shape[0]} genes tested ({time.perf_counter()-t0:.1f}s)")
 
         _tlog(f"Total: {time.perf_counter()-t_total:.1f}s")
