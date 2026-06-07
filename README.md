@@ -9,19 +9,19 @@ GPU-accelerated implementation of the **scTenifoldKnk** algorithm (Osorio et al.
 
 > **~5× faster** than CPU-only implementations on real-world datasets.  
 > Scales to **50,000+ cells** and **20,000+ genes** on a single GPU.  
-> **v0.1.1** — Fixed FC baseline calculation; `--no-bootstrap` now preserves multi-network averaging for lower noise.
+> **v0.2.0** — Integrated enrichment analysis (GSEA + ORA), tqdm progress bars, timestamped outputs.
 
 ---
 
 ## How It Works
 
 ```
-Expression matrix          PC networks (bootstrap)        Manifold alignment          Differential regulation
-(genes × cells)    ──►     (GPU randomized SVD)    ──►    (GPU Laplacian eigh)  ──►   (chi-square + FDR)
-        │                          │                              │                          │
-        ▼                          ▼                              ▼                          ▼
-   QC filtering            Tensor decomposition            WT vs KO embedding         Ranked gene list
-                          (bootstrap mean)                distance per gene           (p-value sorted)
+Expression matrix          PC networks (bootstrap)        Manifold alignment          Differential regulation       Enrichment analysis
+(genes × cells)    ──►     (GPU randomized SVD)    ──►    (GPU Laplacian eigh)  ──►   (chi-square + FDR)    ──►   (GSEA + ORA)
+        │                          │                              │                          │                        │
+        ▼                          ▼                              ▼                          ▼                        ▼
+   QC filtering            Tensor decomposition            WT vs KO embedding         Ranked gene list          GO / KEGG / Reactome
+                          (bootstrap mean)                distance per gene           (p-value sorted)         pathway enrichment
 ```
 
 The algorithm builds multiple gene regulatory networks from bootstrapped cell subsets, decomposes them into a wild-type tensor, simulates knockout by zeroing target gene rows, then measures the manifold embedding shift for every gene.
@@ -52,7 +52,10 @@ M = Qᵀ @ X      (832 × 42,507) @ (42,507 × 7,901)  =  559 GFLOPs per batch
 # Requires PyTorch with CUDA (see https://pytorch.org)
 pip install torch --index-url https://download.pytorch.org/whl/cu126
 
-# Install virt_knock
+# Install virt_knock with enrichment support
+pip install "virt_knock[enrich] @ git+https://github.com/virchow-zhang/virt_knock.git"
+
+# Or minimal install (no enrichment)
 pip install git+https://github.com/virchow-zhang/virt_knock.git
 ```
 
@@ -61,7 +64,7 @@ Or from source:
 ```bash
 git clone https://github.com/virchow-zhang/virt_knock.git
 cd virt_knock
-pip install -e .
+pip install -e ".[enrich]"
 ```
 
 ## Quick Start
@@ -72,15 +75,24 @@ pip install -e .
 # Knock out ETS1 with default bootstrap (10 nets × 500 cells)
 virt_knock -i expression.tsv -g ETS1
 
-# Use all cells (no subsampling) with multi-network averaging
+# Use all cells with multi-network averaging (recommended for robust results)
 virt_knock -i expression.tsv -g ETS1 --no-bootstrap -n 10
+
+# Knock out with automatic enrichment analysis (GSEA + ORA)
+virt_knock -i expression.tsv -g ETS1 --no-bootstrap -n 10 --enrich
 
 # Knock out multiple genes
 virt_knock -i expression.tsv -g ETS1,FOXP3 -n 10 -c 500
 
-# Custom output directory
+# Custom output directory (timestamped by default)
 virt_knock -i expression.tsv -g ETS1 -o ./results
 ```
+
+> **Note**: Output directories are automatically timestamped (e.g., `output/ETS1_n10_20260607_120000/`).  
+> Use `--no-timestamp` to disable.
+> 
+> **Subsampling warning**: When `-c ≤ 500`, the KO gene may not rank first due to insufficient signal.  
+> Consider `--all-cells` or `--no-bootstrap -n 10` for biologically robust results.
 
 ### Python API
 
@@ -112,6 +124,15 @@ print(result.head(20))
 
 # Save results
 result.to_csv("knockout_results.csv")
+
+# Run enrichment analysis (requires `pip install virt_knock[enrich]`)
+from virt_knock import run_enrichment_all
+
+run_enrichment_all(
+    dreg_df=result,
+    out_dir="./enrichment",
+    ora_p_cutoff=0.05,  # adjusted p-value threshold for ORA
+)
 ```
 
 ### Low-level API
@@ -145,7 +166,17 @@ ko_tensor = virtual_knockout(wt_tensor, ["Ets1"])
 ma = manifold_alignment(wt_tensor, ko_tensor, d=2)
 
 # 6. Differential regulation
-result = differential_regulation(ma)
+result = differential_regulation(ma, ko_genes=["Ets1"])
+
+# 7. Enrichment analysis (optional, requires gseapy)
+from virt_knock import run_gsea_prerank, run_ora_enrichr
+
+# GSEA: rank all genes by Z-score
+run_gsea_prerank(result, out_dir="./gsea")
+
+# ORA: test significant genes against pathway databases
+sig_genes = result[result["adjusted_p-value"] < 0.05]["Gene"].tolist()
+run_ora_enrichr(sig_genes, out_dir="./ora")
 ```
 
 ## Algorithm Details
@@ -183,6 +214,44 @@ Benchmark (TESLA V100-16GB, 42,507 cells × 7,901 genes)
                                 CPU  ~190 s  (estimated)
                                 ═══════════════════════════
                                 GPU  4× faster
+```
+
+## CLI Reference
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-i`, `--input` | *(required)* | Expression matrix (tsv/csv, genes × cells) |
+| `-g`, `--genes` | *(required)* | Gene name(s) to knock out (comma-separated) |
+| `-o`, `--output` | `./output` | Base output directory (timestamped subdir created) |
+| `--no-timestamp` | `false` | Disable timestamped subdirectory |
+| `--enrich` | `false` | Run enrichment analysis (GSEA + ORA) after knockout |
+| `-n`, `--n-nets` | `10` | Number of bootstrap networks |
+| `-c`, `--n-cells` | `500` | Cells per subsample |
+| `--all-cells` | `false` | Use all cells (equivalent to `--no-bootstrap` with `-n 1`) |
+| `--no-bootstrap` | `false` | Use all cells in each network (no cell subsampling) |
+| `--n-comp` | `3` | PC components per gene regression |
+| `--q` | `0.95` | Quantile threshold for edge pruning |
+| `--strict-lambda` | `0` | Direction pruning strength (0 = off) |
+| `--ma-dim` | `2` | Manifold alignment dimension |
+| `--seed` | `42` | Random seed |
+| `--min-lib-size` | `1000` | Min library size per cell |
+| `--min-percent` | `0.05` | Min fraction of cells expressing a gene |
+| `--sep` | `tab` | Field separator in input file |
+
+## Output Structure
+
+```
+output/Ets1_n10_20260607_120000/
+├── knockout_Ets1_d_regulation.csv     # Differential regulation (7 columns: Gene, Distance, Z, FC, p-value, adjusted_p-value)
+└── enrichment/                          # Only when --enrich is used
+    ├── gsea/
+    │   ├── gsea_GO_Biological_Process_2023/
+    │   ├── gsea_KEGG_2019_Mouse/
+    │   └── gsea_Reactome_2022/
+    └── ora/
+        ├── ora_GO_Biological_Process_2023/
+        ├── ora_KEGG_2019_Mouse/
+        └── ora_Reactome_2022/
 ```
 
 ## Input Format
