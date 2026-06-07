@@ -9,7 +9,7 @@ description = "CUDA-native single-cell virtual gene knockout (scTenifoldKnk)"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "virt_knock contributors"},
+    {name = "virchow-zhang", email = "1063493607@qq.com"},
 ]
 keywords = [
     "single-cell", "scRNA-seq", "gene-regulatory-network",
