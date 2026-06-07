@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "virt_knock"
+version = "0.1.0"
+description = "CUDA-native single-cell virtual gene knockout (scTenifoldKnk)"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "virt_knock contributors"},
+]
+keywords = [
+    "single-cell", "scRNA-seq", "gene-regulatory-network",
+    "virtual-knockout", "CUDA", "GPU", "PyTorch",
+    "scTenifoldKnk", "bioinformatics",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "torch>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+]
+
+[project.scripts]
+virt_knock = "virt_knock.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/user/virt_knock"
+Repository = "https://github.com/user/virt_knock"
+
+[tool.setuptools.packages.find]
+include = ["virt_knock*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
