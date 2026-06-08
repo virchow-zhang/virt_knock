@@ -216,6 +216,33 @@ Benchmark (TESLA V100-16GB, 42,507 cells × 7,901 genes)
                                 GPU  4× faster
 ```
 
+## Batch Pipeline
+
+The `batch_tf_knockout.py` script runs virtual knockout on all TFs in a list, reusing the shared PC networks and WT tensor:
+
+```bash
+# Full analysis with enrichment (GSEA + ORA) — ~8 hours for ~130 TFs
+python batch_tf_knockout.py
+
+# GPU-only mode (skip enrichment) — ~25 minutes for ~130 TFs
+python batch_tf_knockout.py --no-enrich
+
+# Custom bootstrap parameters
+python batch_tf_knockout.py --no-enrich -n 20 -c 1000 --n-comp 5
+```
+
+| Mode | ~130 TFs (V100 GPU) | ~130 TFs (CPU estimate) | GPU speedup |
+|------|--------------------:|----------------------:|------------:|
+| With enrichment | ~8 h | ~13-15 h | ~1.7× |
+| Without enrichment | **~25 min** | ~7-8 h | **~18×** |
+
+> Enrichment (GSEA + ORA via gseapy) is CPU-only and accounts for ~75% of the total runtime.  
+> If you only need differential regulation results, use `--no-enrich` and let the GPU do the heavy lifting.
+
+Configuration is set at the top of `batch_tf_knockout.py`: matrix path, TF list, output directory, and pipeline parameters.
+
+The script is **resume-friendly** — re-running it skips TFs whose `d_regulation.csv` already exists.
+
 ## CLI Reference
 
 | Flag | Default | Description |
