@@ -8,6 +8,7 @@ build/
 .eggs/
 output/
 output_v2/
+output_tf_batch/
 *.txt
 test_*.py
 debug_*.py
