@@ -9,7 +9,12 @@ build/
 output/
 output_v2/
 output_tf_batch/
-*.txt
+# Data files
+expression_*.txt
+gene_list.txt
+tf_list.txt
+trrust_*.txt
+# Dev scripts
 test_*.py
 debug_*.py
 summary_enrichment.py
