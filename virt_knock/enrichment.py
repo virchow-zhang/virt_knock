@@ -18,18 +18,55 @@ except ImportError:
     _HAS_GSEAPY = False
 
 
-# Default gene set libraries
-DEFAULT_GSEA_LIBRARIES = [
-    "GO_Biological_Process_2023",
-    "KEGG_2019_Mouse",
-    "Reactome_2022",
-]
+# Species-aware gene set library presets (Enrichr / gseapy)
+SPECIES_PRESETS = {
+    "human": {
+        "go":   "GO_Biological_Process_2023",
+        "kegg": "KEGG_2021_Human",
+        "reactome": "Reactome_2022",
+    },
+    "mouse": {
+        "go":   "GO_Biological_Process_2023",
+        "kegg": "KEGG_2019_Mouse",
+        "reactome": "Reactome_2022",
+    },
+}
 
-DEFAULT_ORA_LIBRARIES = [
-    "GO_Biological_Process_2023",
-    "KEGG_2019_Mouse",
-    "Reactome_2022",
-]
+DEFAULT_SPECIES = "human"
+
+def resolve_enrichr_libraries(species=None,
+                              gsea_libraries=None,
+                              ora_libraries=None):
+    """Resolve Enrichr gene set libraries from species name or explicit lists.
+
+    Parameters
+    ----------
+    species : str, optional
+        Species key in SPECIES_PRESETS (e.g. ``\"human\"``, ``\"mouse\"``).
+        Ignored when explicit *gsea_libraries* or *ora_libraries* are given.
+    gsea_libraries, ora_libraries : list of str, optional
+        Explicit library lists (take precedence over *species*).
+
+    Returns
+    -------
+    tuple of (list of str, list of str)
+        Resolved (GSEA libraries, ORA libraries).
+    """
+    if species is None:
+        species = DEFAULT_SPECIES
+    preset = SPECIES_PRESETS.get(species, SPECIES_PRESETS[DEFAULT_SPECIES])
+    if gsea_libraries is None and ora_libraries is None:
+        libs = list(preset.values())
+        return libs, libs
+    if gsea_libraries is None:
+        gsea_libraries = list(preset.values())
+    if ora_libraries is None:
+        ora_libraries = list(preset.values())
+    return gsea_libraries, ora_libraries
+
+# Default gene set libraries (backward-compatible, default to human)
+DEFAULT_GSEA_LIBRARIES = list(SPECIES_PRESETS[DEFAULT_SPECIES].values())
+DEFAULT_ORA_LIBRARIES = list(SPECIES_PRESETS[DEFAULT_SPECIES].values())
 
 GSEA_MIN_SIZE = 10
 GSEA_MAX_SIZE = 500
@@ -196,6 +233,7 @@ def run_enrichment_all(
     ora_p_cutoff: float = 0.05,
     gsea_libraries: Optional[List[str]] = None,
     ora_libraries: Optional[List[str]] = None,
+    species: Optional[str] = None,
     verbose: bool = True,
 ) -> dict:
     """Run full enrichment suite (GSEA + ORA) on knockout results.
@@ -209,7 +247,10 @@ def run_enrichment_all(
     ora_p_cutoff : float
         Adjusted p-value threshold for selecting ORA genes.
     gsea_libraries, ora_libraries : list of str, optional
-        Gene set libraries.
+        Gene set libraries (takes precedence over *species*).
+    species : str, optional
+        Species for automatic library selection (e.g. ``\"human\"``, ``\"mouse\"``).
+        Ignored when explicit *gsea_libraries* or *ora_libraries* are given.
     verbose : bool
         Print progress.
 
@@ -219,6 +260,12 @@ def run_enrichment_all(
         {"gsea": {...}, "ora": {...}}
     """
     _check_gseapy()
+
+    gsea_libraries, ora_libraries = resolve_enrichr_libraries(
+        species=species,
+        gsea_libraries=gsea_libraries,
+        ora_libraries=ora_libraries,
+    )
 
     if verbose:
         print(f"\n{'='*60}")
@@ -274,15 +321,19 @@ def run_enrichment_all(
 
     if verbose:
         print(f"\n  Enrichment complete.")
-        _print_top_enrichment(out_dir)
+        _print_top_enrichment(out_dir, gsea_libraries, ora_libraries)
 
     return results
 
 
-def _print_top_enrichment(out_dir: str, top_n: int = 3):
+def _print_top_enrichment(out_dir: str, gsea_libraries=None, ora_libraries=None, top_n: int = 3):
     """Print top enrichment hits from each analysis."""
+    if gsea_libraries is None:
+        gsea_libraries = DEFAULT_GSEA_LIBRARIES
+    if ora_libraries is None:
+        ora_libraries = DEFAULT_ORA_LIBRARIES
     # GSEA
-    for lib in DEFAULT_GSEA_LIBRARIES:
+    for lib in gsea_libraries:
         lib_short = lib.replace(" ", "_")
         report = os.path.join(out_dir, "gsea", f"gsea_{lib_short}",
                               "gseapy.gene_set.prerank.report.csv")
@@ -297,7 +348,7 @@ def _print_top_enrichment(out_dir: str, top_n: int = 3):
                           f"(NES={row['NES']:+.2f}, FDR={row['FDR q-val']:.2e})")
 
     # ORA
-    for lib in DEFAULT_ORA_LIBRARIES:
+    for lib in ora_libraries:
         lib_short = lib.replace(" ", "_")
         for prefix in ["Enrichr.human.enrichr.reports.txt",
                        "Enrichr.mouse.enrichr.reports.txt"]:

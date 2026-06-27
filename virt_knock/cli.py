@@ -32,6 +32,9 @@ Examples:
                         help="Do not append timestamp to output directory")
     parser.add_argument("--enrich", action="store_true",
                         help="Run enrichment analysis (GSEA + ORA) after knockout")
+    parser.add_argument("--species", default=None,
+                        choices=["human", "mouse"],
+                        help="Species for enrichment databases (default: human)")
     parser.add_argument("-n", "--n-nets", type=int, default=10,
                         help="Number of bootstrap networks (default: 10)")
     parser.add_argument("-c", "--n-cells", type=int, default=500,
@@ -83,7 +86,8 @@ Examples:
     print(f"  N networks: {n_nets}  |  Cells/sample: {'ALL' if n_samp_cells is None else n_samp_cells}")
     print(f"  Output:     {args.output}")
     if args.enrich:
-        print(f"  Enrichment: GSEA + ORA (GO, KEGG, Reactome)")
+        species_label = args.species or "human"
+        print(f"  Enrichment: GSEA + ORA ({species_label}: GO, KEGG, Reactome)")
     print("=" * 60)
 
     # Load data
@@ -152,5 +156,6 @@ Examples:
         run_enrichment_all(
             dreg_df=result,
             out_dir=os.path.join(args.output, "enrichment"),
+            species=args.species,
             verbose=True,
         )

@@ -31,6 +31,8 @@ from .enrichment import (
     run_enrichment_all,
     run_gsea_prerank,
     run_ora_enrichr,
+    resolve_enrichr_libraries,
+    SPECIES_PRESETS,
 )
 
 __version__ = "0.2.0"
