@@ -9,7 +9,7 @@ GPU-accelerated implementation of the **scTenifoldKnk** algorithm (Osorio et al.
 
 > **~5× faster** than CPU-only implementations on real-world datasets.  
 > Scales to **50,000+ cells** and **20,000+ genes** on a single GPU.  
-> **v0.2.0** — Integrated enrichment analysis (GSEA + ORA), tqdm progress bars, timestamped outputs.
+> **v0.3.0** — Species-aware enrichment (human/mouse), `--species` CLI flag, tqdm progress bars, timestamped outputs.
 
 ---
 
@@ -78,8 +78,11 @@ virt_knock -i expression.tsv -g ETS1
 # Use all cells with multi-network averaging (recommended for robust results)
 virt_knock -i expression.tsv -g ETS1 --no-bootstrap -n 10
 
-# Knock out with automatic enrichment analysis (GSEA + ORA)
+# Knock out with automatic enrichment analysis (GSEA + ORA, human pathways)
 virt_knock -i expression.tsv -g ETS1 --no-bootstrap -n 10 --enrich
+
+# Knock out with mouse-specific enrichment (e.g. for mouse datasets)
+virt_knock -i expression.tsv -g Ets1 --no-bootstrap -n 10 --enrich --species mouse
 
 # Knock out multiple genes
 virt_knock -i expression.tsv -g ETS1,FOXP3 -n 10 -c 500
@@ -126,13 +129,33 @@ print(result.head(20))
 result.to_csv("knockout_results.csv")
 
 # Run enrichment analysis (requires `pip install virt_knock[enrich]`)
-from virt_knock import run_enrichment_all
+from virt_knock import run_enrichment_all, resolve_enrichr_libraries
 
+# Human (default)
 run_enrichment_all(
     dreg_df=result,
-    out_dir="./enrichment",
+    out_dir="./enrichment_human",
     ora_p_cutoff=0.05,  # adjusted p-value threshold for ORA
 )
+
+# Mouse
+run_enrichment_all(
+    dreg_df=result,
+    out_dir="./enrichment_mouse",
+    species="mouse",
+)
+
+# Custom libraries (fully override species presets)
+run_enrichment_all(
+    dreg_df=result,
+    out_dir="./enrichment_custom",
+    gsea_libraries=["KEGG_2021_Human", "Reactome_2022"],
+    ora_libraries=["KEGG_2021_Human"],
+)
+
+# Resolve library names for a species programmatically
+gsea_libs, ora_libs = resolve_enrichr_libraries("mouse")
+print(gsea_libs)  # ['GO_Biological_Process_2023', 'KEGG_2019_Mouse', 'Reactome_2022']
 ```
 
 ### Low-level API
@@ -252,6 +275,7 @@ The script is **resume-friendly** — re-running it skips TFs whose `d_regulatio
 | `-o`, `--output` | `./output` | Base output directory (timestamped subdir created) |
 | `--no-timestamp` | `false` | Disable timestamped subdirectory |
 | `--enrich` | `false` | Run enrichment analysis (GSEA + ORA) after knockout |
+| `--species` | `human` | Species for enrichment databases (`human` or `mouse`) |
 | `-n`, `--n-nets` | `10` | Number of bootstrap networks |
 | `-c`, `--n-cells` | `500` | Cells per subsample |
 | `--all-cells` | `false` | Use all cells (equivalent to `--no-bootstrap` with `-n 1`) |
@@ -273,11 +297,11 @@ output/Ets1_n10_20260607_120000/
 └── enrichment/                          # Only when --enrich is used
     ├── gsea/
     │   ├── gsea_GO_Biological_Process_2023/
-    │   ├── gsea_KEGG_2019_Mouse/
+    │   ├── gsea_KEGG_2021_Human/       # Human default; KEGG_2019_Mouse for --species mouse
     │   └── gsea_Reactome_2022/
     └── ora/
         ├── ora_GO_Biological_Process_2023/
-        ├── ora_KEGG_2019_Mouse/
+        ├── ora_KEGG_2021_Human/
         └── ora_Reactome_2022/
 ```
 

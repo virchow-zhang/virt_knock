@@ -35,7 +35,7 @@ from .enrichment import (
     SPECIES_PRESETS,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "run_qc",
     "build_pc_networks",
